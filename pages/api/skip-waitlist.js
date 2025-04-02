@@ -1,7 +1,30 @@
 export default async function handler(req, res) {
-    if (req.method !== 'POST') {
-      return res.status(405).json({ error: 'Method not allowed' });
-    }
+    const allowedOrigins = [
+        'http://127.0.0.1:9292', // for local dev
+        'http://localhost:9292',
+        'https://yourstore.com', // ← replace with your live Shopify store
+        'https://yourstore.myshopify.com' // ← also add preview URLs if needed
+      ];
+    
+      const origin = req.headers.origin;
+      if (allowedOrigins.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+      }
+    
+      res.setHeader('Vary', 'Origin');
+      res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    
+      // Preflight request
+      if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+      }
+    
+      // POST request only
+      if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method Not Allowed' });
+      }
   
     const {
       customer_id,
