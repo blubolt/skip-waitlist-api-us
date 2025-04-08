@@ -58,7 +58,32 @@ export default async function handler(req, res) {
         })
       });
   
-      // Step 2: Fetch current tags
+      // Step 2: Extract date from waitlist_tag and create new skip tag
+      const dateMatch = waitlist_tag.match(/:(\d{1,2}(?:st|nd|rd|th)?\s+\w+\s+\d{4})$/);
+      if (!dateMatch) {
+        return res.status(400).json({ error: 'Invalid waitlist tag format - could not extract date' });
+      }
+      
+      const dateStr = dateMatch[1];
+      const monthMatch = dateStr.match(/(\w+)\s+\d{4}$/);
+      if (!monthMatch) {
+        return res.status(400).json({ error: 'Invalid waitlist tag format - could not extract month' });
+      }
+      
+      const monthSkipped = monthMatch[1].toLowerCase();
+      const now = new Date();
+      const timestamp = now.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      }) + ' ' + now.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+      const skipTag = `skip-${monthSkipped}-${timestamp}`;
+  
+      // Step 3: Fetch current tags
       const customerRes = await fetch(`${SHOPIFY_ADMIN_API_URL}/customers/${customer_id}.json`, {
         headers: {
           'X-Shopify-Access-Token': SHOPIFY_ADMIN_API_KEY
@@ -67,9 +92,13 @@ export default async function handler(req, res) {
   
       const customerData = await customerRes.json();
       const currentTags = customerData.customer.tags.split(',').map(t => t.trim());
-      const updatedTags = currentTags.filter(tag => tag !== waitlist_tag);
+      
+      // Add the new skip tag if it doesn't already exist
+      if (!currentTags.includes(skipTag)) {
+        currentTags.push(skipTag);
+      }
   
-      // Step 3: Update tags
+      // Step 4: Update tags
       await fetch(`${SHOPIFY_ADMIN_API_URL}/customers/${customer_id}.json`, {
         method: 'PUT',
         headers: {
@@ -79,7 +108,7 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           customer: {
             id: customer_id,
-            tags: updatedTags.join(', ')
+            tags: currentTags.join(', ')
           }
         })
       });
