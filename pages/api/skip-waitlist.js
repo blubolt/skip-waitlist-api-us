@@ -32,9 +32,26 @@ export default async function handler(req, res) {
       waitlist_tag      // full tag string to remove
     } = req.body;
   
+    console.log('Received request body:', req.body);
+  
     if (!customer_id || !subscription_key || !waitlist_tag) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      console.log('Missing required fields:', {
+        customer_id: !!customer_id,
+        subscription_key: !!subscription_key,
+        waitlist_tag: !!waitlist_tag
+      });
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        details: {
+          customer_id: !!customer_id,
+          subscription_key: !!subscription_key,
+          waitlist_tag: !!waitlist_tag
+        }
+      });
     }
+  
+    // Log the waitlist tag format for debugging
+    console.log('Waitlist tag received:', waitlist_tag);
   
     const SHOPIFY_ADMIN_API_KEY = process.env.SHOPIFY_ADMIN_API_KEY;
     const SHOPIFY_STORE_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN;
@@ -59,15 +76,27 @@ export default async function handler(req, res) {
       });
   
       // Step 2: Extract date from waitlist_tag and create new skip tag
+      console.log('Attempting to match date in waitlist tag:', waitlist_tag);
       const dateMatch = waitlist_tag.match(/:(\d{1,2}(?:st|nd|rd|th)?\s+\w+\s+\d{4})$/);
       if (!dateMatch) {
-        return res.status(400).json({ error: 'Invalid waitlist tag format - could not extract date' });
+        console.log('Failed to match date pattern in tag:', waitlist_tag);
+        return res.status(400).json({ 
+          error: 'Invalid waitlist tag format - could not extract date',
+          received_tag: waitlist_tag,
+          expected_format: 'waitlist:TAG:PRODUCT_HANDLE:DDth Month YYYY'
+        });
       }
       
       const dateStr = dateMatch[1];
+      console.log('Extracted date string:', dateStr);
+      
       const monthMatch = dateStr.match(/(\w+)\s+\d{4}$/);
       if (!monthMatch) {
-        return res.status(400).json({ error: 'Invalid waitlist tag format - could not extract month' });
+        console.log('Failed to extract month from date:', dateStr);
+        return res.status(400).json({ 
+          error: 'Invalid waitlist tag format - could not extract month',
+          received_date: dateStr
+        });
       }
       
       const monthSkipped = monthMatch[1].toLowerCase();
