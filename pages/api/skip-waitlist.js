@@ -99,7 +99,7 @@ export default async function handler(req, res) {
             });
         }
         
-        const baseTag = tagParts[0].trim();
+        const baseTag = tagParts[0].trim().replace(/waitlist$/, '');
         const productHandle = tagParts[2].trim();
         console.log('Extracted base tag:', baseTag);
         console.log('Extracted product handle:', productHandle);
