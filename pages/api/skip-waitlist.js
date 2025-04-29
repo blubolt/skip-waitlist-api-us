@@ -77,7 +77,7 @@ export default async function handler(req, res) {
                 metafield: {
                     namespace: "klaviyo",
                     key: `waitlist_sent`,
-                    value: "True",
+                    value: "False",
                     type: "boolean"
                 }
             })
