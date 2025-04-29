@@ -88,19 +88,21 @@ export default async function handler(req, res) {
             return res.status(500).json({ error: 'Failed to update customer metafield' });
         }
 
-        // Step 2: Extract the base tag without the date
+        // Step 2: Extract the base tag and product handle
         console.log('Attempting to match base tag:', waitlist_tag);
-        const baseTagMatch = waitlist_tag.match(/^(.*?):\d{1,2}(?:st|nd|rd|th)?\s+\w+\s+\d{4}/);
-        if (!baseTagMatch) {
-            console.log('Failed to match base tag pattern:', waitlist_tag);
+        const tagParts = waitlist_tag.split(':');
+        if (tagParts.length < 4) {
+            console.log('Invalid tag format:', waitlist_tag);
             return res.status(400).json({ 
-                error: 'Invalid waitlist tag format - could not extract base tag',
+                error: 'Invalid waitlist tag format',
                 received_tag: waitlist_tag
             });
         }
         
-        const baseTag = baseTagMatch[1];
+        const baseTag = tagParts[0];
+        const productHandle = tagParts[2];
         console.log('Extracted base tag:', baseTag);
+        console.log('Extracted product handle:', productHandle);
         
         const now = new Date();
         const timestamp = now.toLocaleDateString('en-US', {
@@ -112,7 +114,7 @@ export default async function handler(req, res) {
             minute: '2-digit',
             hour12: true
         });
-        const skipTag = `skip-${baseTag}-${timestamp}`;
+        const skipTag = `skipped:${baseTag} ${productHandle} ${timestamp}`;
 
         // Step 3: Fetch current tags
         const customerRes = await fetch(`${SHOPIFY_ADMIN_API_URL}/customers/${customer_id}.json`, {
@@ -129,10 +131,12 @@ export default async function handler(req, res) {
         const customerData = await customerRes.json();
         const currentTags = customerData.customer.tags.split(',').map(t => t.trim());
         
-        // Add the new skip tag if it doesn't already exist
-        if (!currentTags.includes(skipTag)) {
-            currentTags.push(skipTag);
-        }
+        // Remove any existing skip tags for this product
+        const productSkipPattern = new RegExp(`skipped:${baseTag} ${productHandle}`);
+        const filteredTags = currentTags.filter(tag => !productSkipPattern.test(tag));
+        
+        // Add the new skip tag
+        filteredTags.push(skipTag);
 
         // Step 4: Update tags
         const updateResponse = await fetch(`${SHOPIFY_ADMIN_API_URL}/customers/${customer_id}.json`, {
@@ -144,7 +148,7 @@ export default async function handler(req, res) {
             body: JSON.stringify({
                 customer: {
                     id: customer_id,
-                    tags: currentTags.join(', ')
+                    tags: filteredTags.join(', ')
                 }
             })
         });
