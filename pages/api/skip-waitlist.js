@@ -105,16 +105,19 @@ export default async function handler(req, res) {
         console.log('Extracted product handle:', productHandle);
         
         const now = new Date();
-        const timestamp = `${now.getDate()} ${now.toLocaleDateString('en-US', {
+        const day = now.getDate();
+        const month = now.toLocaleDateString('en-GB', {
             month: 'long',
-            year: 'numeric',
             timeZone: 'Europe/London'
-        })} ${now.toLocaleTimeString('en-US', {
+        });
+        const year = now.getFullYear();
+        const time = now.toLocaleTimeString('en-GB', {
             hour: '2-digit',
             minute: '2-digit',
-            hour12: true,
+            hour12: false,
             timeZone: 'Europe/London'
-        })}`;
+        });
+        const timestamp = `${day} ${month} ${year} ${time}`;
         const skipTag = `skipped:${baseTag.replace(/,/g, '')}:${productHandle} ${timestamp.replace(/,/g, '')}`;
 
         // Step 3: Fetch current tags
