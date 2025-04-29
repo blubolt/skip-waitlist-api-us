@@ -99,22 +99,21 @@ export default async function handler(req, res) {
             });
         }
         
-        const baseTag = tagParts[0];
-        const productHandle = tagParts[2];
+        const baseTag = tagParts[0].trim();
+        const productHandle = tagParts[2].trim();
         console.log('Extracted base tag:', baseTag);
         console.log('Extracted product handle:', productHandle);
         
         const now = new Date();
-        const timestamp = now.toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
+        const timestamp = `${now.getDate()} ${now.toLocaleDateString('en-US', {
+            month: 'long',
             year: 'numeric'
-        }) + ' ' + now.toLocaleTimeString('en-US', {
+        })} ${now.toLocaleTimeString('en-US', {
             hour: '2-digit',
             minute: '2-digit',
             hour12: true
-        });
-        const skipTag = `skipped:${baseTag} ${productHandle} ${timestamp}`;
+        })}`;
+        const skipTag = `skipped:${baseTag.replace(/,/g, '')} ${productHandle} ${timestamp.replace(/,/g, '')}`;
 
         // Step 3: Fetch current tags
         const customerRes = await fetch(`${SHOPIFY_ADMIN_API_URL}/customers/${customer_id}.json`, {
@@ -132,7 +131,7 @@ export default async function handler(req, res) {
         const currentTags = customerData.customer.tags.split(',').map(t => t.trim());
         
         // Remove any existing skip tags for this product
-        const productSkipPattern = new RegExp(`skipped:${baseTag} ${productHandle}`);
+        const productSkipPattern = new RegExp(`skipped:${baseTag.replace(/,/g, '')} ${productHandle}`);
         const filteredTags = currentTags.filter(tag => !productSkipPattern.test(tag));
         
         // Add the new skip tag
@@ -148,7 +147,7 @@ export default async function handler(req, res) {
             body: JSON.stringify({
                 customer: {
                     id: customer_id,
-                    tags: filteredTags.join(', ')
+                    tags: filteredTags.join(',')
                 }
             })
         });
