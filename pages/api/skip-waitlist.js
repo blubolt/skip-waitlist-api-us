@@ -88,31 +88,20 @@ export default async function handler(req, res) {
             return res.status(500).json({ error: 'Failed to update customer metafield' });
         }
 
-        // Step 2: Extract date from waitlist_tag and create new skip tag
-        console.log('Attempting to match date in waitlist tag:', waitlist_tag);
-        const dateMatch = waitlist_tag.match(/:(\d{1,2}(?:st|nd|rd|th)?\s+\w+\s+\d{4})$/);
-        if (!dateMatch) {
-            console.log('Failed to match date pattern in tag:', waitlist_tag);
+        // Step 2: Extract the base tag without the date
+        console.log('Attempting to match base tag:', waitlist_tag);
+        const baseTagMatch = waitlist_tag.match(/^(.*?):\d{1,2}(?:st|nd|rd|th)?\s+\w+\s+\d{4}/);
+        if (!baseTagMatch) {
+            console.log('Failed to match base tag pattern:', waitlist_tag);
             return res.status(400).json({ 
-                error: 'Invalid waitlist tag format - could not extract date',
-                received_tag: waitlist_tag,
-                expected_format: 'waitlist:TAG:PRODUCT_HANDLE:DDth Month YYYY'
+                error: 'Invalid waitlist tag format - could not extract base tag',
+                received_tag: waitlist_tag
             });
         }
         
-        const dateStr = dateMatch[1];
-        console.log('Extracted date string:', dateStr);
+        const baseTag = baseTagMatch[1];
+        console.log('Extracted base tag:', baseTag);
         
-        const monthMatch = dateStr.match(/(\w+)\s+\d{4}$/);
-        if (!monthMatch) {
-            console.log('Failed to extract month from date:', dateStr);
-            return res.status(400).json({ 
-                error: 'Invalid waitlist tag format - could not extract month',
-                received_date: dateStr
-            });
-        }
-        
-        const monthSkipped = monthMatch[1].toLowerCase();
         const now = new Date();
         const timestamp = now.toLocaleDateString('en-US', {
             month: 'short',
@@ -123,7 +112,7 @@ export default async function handler(req, res) {
             minute: '2-digit',
             hour12: true
         });
-        const skipTag = `skip-${monthSkipped}-${timestamp}`;
+        const skipTag = `skip-${baseTag}-${timestamp}`;
 
         // Step 3: Fetch current tags
         const customerRes = await fetch(`${SHOPIFY_ADMIN_API_URL}/customers/${customer_id}.json`, {
