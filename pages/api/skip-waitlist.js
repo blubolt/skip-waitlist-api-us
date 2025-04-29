@@ -75,8 +75,8 @@ export default async function handler(req, res) {
             },
             body: JSON.stringify({
                 metafield: {
-                    namespace: "custom",
-                    key: `${subscription_key}_waitlist_sent`,
+                    namespace: "klaviyo",
+                    key: `waitlist_sent`,
                     value: "false",
                     type: "boolean"
                 }
