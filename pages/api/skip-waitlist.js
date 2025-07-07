@@ -5,8 +5,7 @@ export default async function handler(req, res) {
     const allowedOrigins = [
         'http://127.0.0.1:9292',
         'http://localhost:9292',
-        'https://yourstore.com',
-        'https://yourstore.myshopify.com'
+        'https://illumicrate-testing.myshopify.com'
     ];
     
     const origin = req.headers.origin;
