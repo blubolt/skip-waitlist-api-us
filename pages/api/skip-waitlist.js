@@ -71,6 +71,19 @@ export default async function handler(req, res) {
         // Step 1: Set metafield to false
         const metafieldKey = `${metafield_key}_sent`;
         console.log('Setting metafield:', `klaviyo.${metafieldKey} to false`);
+        console.log('Customer ID:', customer_id);
+        console.log('Shopify API URL:', `${SHOPIFY_ADMIN_API_URL}/customers/${customer_id}/metafields.json`);
+        
+        const metafieldPayload = {
+            metafield: {
+                namespace: "klaviyo",
+                key: metafieldKey,
+                value: "false",
+                type: "boolean"
+            }
+        };
+        
+        console.log('Metafield payload:', JSON.stringify(metafieldPayload, null, 2));
         
         const metafieldResponse = await fetch(`${SHOPIFY_ADMIN_API_URL}/customers/${customer_id}/metafields.json`, {
             method: 'POST',
@@ -78,20 +91,27 @@ export default async function handler(req, res) {
                 'Content-Type': 'application/json',
                 'X-Shopify-Access-Token': SHOPIFY_ADMIN_API_KEY
             },
-            body: JSON.stringify({
-                metafield: {
-                    namespace: "klaviyo",
-                    key: metafieldKey,
-                    value: "False",
-                    type: "boolean"
-                }
-            })
+            body: JSON.stringify(metafieldPayload)
         });
 
+        console.log('Metafield response status:', metafieldResponse.status);
+        console.log('Metafield response headers:', Object.fromEntries(metafieldResponse.headers.entries()));
+
         if (!metafieldResponse.ok) {
-            console.error('Failed to update metafield:', await metafieldResponse.text());
-            return res.status(500).json({ error: 'Failed to update customer metafield' });
+            const errorText = await metafieldResponse.text();
+            console.error('Failed to update metafield. Status:', metafieldResponse.status);
+            console.error('Error response:', errorText);
+            return res.status(500).json({ 
+                error: 'Failed to update customer metafield',
+                details: {
+                    status: metafieldResponse.status,
+                    response: errorText
+                }
+            });
         }
+
+        const metafieldResult = await metafieldResponse.json();
+        console.log('Metafield update successful:', metafieldResult);
 
         // Step 2: Extract the base tag and product handle
         console.log('Attempting to match base tag:', waitlist_tag);
@@ -104,7 +124,7 @@ export default async function handler(req, res) {
             });
         }
         
-        const baseTag = tagParts[0].trim().replace(/waitlist$/, '');
+        const baseTag = tagParts[1].trim();
         const productHandle = tagParts[2].trim();
         console.log('Extracted base tag:', baseTag);
         console.log('Extracted product handle:', productHandle);
@@ -119,7 +139,7 @@ export default async function handler(req, res) {
             hour12: false
         });
         const timestamp = `${day} ${month} ${year} ${time}`;
-        const skipTag = `skipped:${baseTag.replace(/,/g, '')}:${productHandle} ${timestamp.replace(/,/g, '')}`;
+        const skipTag = `skipped:${baseTag.replace(/,/g, '')}:${productHandle}:${timestamp.replace(/,/g, '')}`;
 
         // Step 3: Fetch current tags
         const customerRes = await fetch(`${SHOPIFY_ADMIN_API_URL}/customers/${customer_id}.json`, {
