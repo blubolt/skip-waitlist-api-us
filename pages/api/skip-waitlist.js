@@ -32,23 +32,26 @@ export default async function handler(req, res) {
         const {
             customer_id,
             subscription_key,
-            waitlist_tag
+            waitlist_tag,
+            metafield_key
         } = req.body;
 
         console.log('Received request body:', req.body);
     
-        if (!customer_id || !subscription_key || !waitlist_tag) {
+        if (!customer_id || !subscription_key || !waitlist_tag || !metafield_key) {
             console.log('Missing required fields:', {
                 customer_id: !!customer_id,
                 subscription_key: !!subscription_key,
-                waitlist_tag: !!waitlist_tag
+                waitlist_tag: !!waitlist_tag,
+                metafield_key: !!metafield_key
             });
             return res.status(400).json({ 
                 error: 'Missing required fields',
                 details: {
                     customer_id: !!customer_id,
                     subscription_key: !!subscription_key,
-                    waitlist_tag: !!waitlist_tag
+                    waitlist_tag: !!waitlist_tag,
+                    metafield_key: !!metafield_key
                 }
             });
         }
@@ -66,6 +69,9 @@ export default async function handler(req, res) {
         }
     
         // Step 1: Set metafield to false
+        const metafieldKey = `${metafield_key}_sent`;
+        console.log('Setting metafield:', `klaviyo.${metafieldKey} to false`);
+        
         const metafieldResponse = await fetch(`${SHOPIFY_ADMIN_API_URL}/customers/${customer_id}/metafields.json`, {
             method: 'POST',
             headers: {
@@ -75,7 +81,7 @@ export default async function handler(req, res) {
             body: JSON.stringify({
                 metafield: {
                     namespace: "klaviyo",
-                    key: `waitlist_sent`,
+                    key: metafieldKey,
                     value: "False",
                     type: "boolean"
                 }
