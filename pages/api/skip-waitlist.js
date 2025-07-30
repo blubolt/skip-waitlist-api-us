@@ -113,10 +113,10 @@ export default async function handler(req, res) {
         const metafieldResult = await metafieldResponse.json();
         console.log('Metafield update successful:', metafieldResult);
 
-        // Step 2: Extract the base tag and product handle
-        console.log('Attempting to match base tag:', waitlist_tag);
+        // Step 2: Extract the product handle from the waitlist tag
+        console.log('Attempting to parse waitlist tag:', waitlist_tag);
         const tagParts = waitlist_tag.split(':');
-        if (tagParts.length < 4) {
+        if (tagParts.length < 3) {
             console.log('Invalid tag format:', waitlist_tag);
             return res.status(400).json({ 
                 error: 'Invalid waitlist tag format',
@@ -124,7 +124,8 @@ export default async function handler(req, res) {
             });
         }
         
-        const productHandle = tagParts[2].trim();
+        // Format: waitlist:PRODUCT:DATE:TIME
+        const productHandle = tagParts[1].trim();
         console.log('Extracted product handle:', productHandle);
         
         const now = new Date();
@@ -155,7 +156,7 @@ export default async function handler(req, res) {
         const currentTags = customerData.customer.tags.split(',').map(t => t.trim());
         
         // Remove any existing skip tags for this product
-        const productSkipPattern = new RegExp(`skipped:${productHandle}`);
+        const productSkipPattern = new RegExp(`skipped:${productHandle}:`);
         const filteredTags = currentTags.filter(tag => !productSkipPattern.test(tag));
         
         // Add the new skip tag
