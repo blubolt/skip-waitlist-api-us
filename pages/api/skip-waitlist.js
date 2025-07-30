@@ -118,14 +118,17 @@ export default async function handler(req, res) {
         const productHandle = subscription_key;
         console.log('Product handle:', productHandle);
         
+        // Use UTC to avoid timezone issues
         const now = new Date();
-        const day = now.getDate();
-        const month = now.toLocaleDateString('en-GB', { month: 'long' });
-        const year = now.getFullYear();
+        
+        const day = now.getUTCDate();
+        const month = now.toLocaleDateString('en-GB', { month: 'long', timeZone: 'UTC' });
+        const year = now.getUTCFullYear();
         const time = now.toLocaleTimeString('en-GB', { 
             hour: '2-digit', 
             minute: '2-digit',
-            hour12: false
+            hour12: false,
+            timeZone: 'UTC'
         });
         const timestamp = `${day} ${month} ${year} ${time}`;
         const skipTag = `skipped:${productHandle}:${timestamp.replace(/,/g, '')}`;
