@@ -124,9 +124,7 @@ export default async function handler(req, res) {
             });
         }
         
-        const baseTag = tagParts[1].trim();
         const productHandle = tagParts[2].trim();
-        console.log('Extracted base tag:', baseTag);
         console.log('Extracted product handle:', productHandle);
         
         const now = new Date();
@@ -139,7 +137,7 @@ export default async function handler(req, res) {
             hour12: false
         });
         const timestamp = `${day} ${month} ${year} ${time}`;
-        const skipTag = `skipped:${baseTag.replace(/,/g, '')}:${productHandle}:${timestamp.replace(/,/g, '')}`;
+        const skipTag = `skipped:${productHandle}:${timestamp.replace(/,/g, '')}`;
 
         // Step 3: Fetch current tags
         const customerRes = await fetch(`${SHOPIFY_ADMIN_API_URL}/customers/${customer_id}.json`, {
@@ -157,7 +155,7 @@ export default async function handler(req, res) {
         const currentTags = customerData.customer.tags.split(',').map(t => t.trim());
         
         // Remove any existing skip tags for this product
-        const productSkipPattern = new RegExp(`skipped:${baseTag.replace(/,/g, '')}:${productHandle}`);
+        const productSkipPattern = new RegExp(`skipped:${productHandle}`);
         const filteredTags = currentTags.filter(tag => !productSkipPattern.test(tag));
         
         // Add the new skip tag
