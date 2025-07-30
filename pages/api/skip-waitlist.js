@@ -121,10 +121,12 @@ export default async function handler(req, res) {
         // Use BST timezone to match user expectations
         const now = new Date();
         
-        const day = now.getDate();
-        const month = now.toLocaleDateString('en-GB', { month: 'long', timeZone: 'Europe/London' });
-        const year = now.getFullYear();
-        const time = now.toLocaleTimeString('en-GB', { 
+        // Get date components in BST timezone
+        const bstDate = new Date(now.toLocaleString('en-GB', { timeZone: 'Europe/London' }));
+        const day = bstDate.getDate();
+        const month = bstDate.toLocaleDateString('en-GB', { month: 'long', timeZone: 'Europe/London' });
+        const year = bstDate.getFullYear();
+        const time = bstDate.toLocaleTimeString('en-GB', { 
             hour: '2-digit', 
             minute: '2-digit',
             hour12: false,
