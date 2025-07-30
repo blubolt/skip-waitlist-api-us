@@ -113,20 +113,10 @@ export default async function handler(req, res) {
         const metafieldResult = await metafieldResponse.json();
         console.log('Metafield update successful:', metafieldResult);
 
-        // Step 2: Extract the product handle from the waitlist tag
-        console.log('Attempting to parse waitlist tag:', waitlist_tag);
-        const tagParts = waitlist_tag.split(':');
-        if (tagParts.length < 3) {
-            console.log('Invalid tag format:', waitlist_tag);
-            return res.status(400).json({ 
-                error: 'Invalid waitlist tag format',
-                received_tag: waitlist_tag
-            });
-        }
-        
-        // Format: waitlist:PRODUCT:DATE:TIME
-        const productHandle = tagParts[1].trim();
-        console.log('Extracted product handle:', productHandle);
+        // Step 2: Use the subscription_key as the product handle
+        console.log('Using subscription_key as product handle:', subscription_key);
+        const productHandle = subscription_key;
+        console.log('Product handle:', productHandle);
         
         const now = new Date();
         const day = now.getDate();
