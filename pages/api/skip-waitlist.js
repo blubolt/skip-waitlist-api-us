@@ -128,7 +128,7 @@ export default async function handler(req, res) {
         const time = now.toLocaleTimeString('en-GB', { 
             hour: '2-digit', 
             minute: '2-digit',
-            hour12: false,
+            hour12: true,
             timeZone: 'Europe/London'
         });
         const timestamp = `${day} ${month} ${year} ${time}`;
@@ -173,7 +173,7 @@ export default async function handler(req, res) {
         const nextMonthName = nextMonthDate.toLocaleDateString('en-GB', { month: 'long', timeZone: 'Europe/London' });
         
         // Create the new waitlist tag for next month
-        const nextMonthWaitlistTag = `waitlist:${productHandle}:${nextMonthName.toLowerCase()}-${nextYear}`;
+        const nextMonthWaitlistTag = `waitlist:${productHandle}:${day} ${nextMonthName.toLowerCase()}-${nextYear}:${time}`;
         
         // Add the new waitlist tag if it doesn't already exist
         if (!filteredTags.includes(nextMonthWaitlistTag)) {
