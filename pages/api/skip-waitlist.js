@@ -35,7 +35,9 @@ export default async function handler(req, res) {
             customer_id,
             subscription_key,
             waitlist_tag,
-            metafield_key
+            metafield_key,
+            is_remove = false,
+            customer_tag_to_remove
         } = req.body;
 
         console.log('Received request body:', req.body);
@@ -150,38 +152,49 @@ export default async function handler(req, res) {
 
         const customerData = await customerRes.json();
         const currentTags = customerData.customer.tags.split(',').map(t => t.trim());
-        
+
         // Remove any existing skip tags for this product
         const productSkipPattern = new RegExp(`skipped:${productHandle}:`);
-        const filteredTags = currentTags.filter(tag => !productSkipPattern.test(tag));
-        
-        // Add the new skip tag
-        filteredTags.push(skipTag);
+        let filteredTags = currentTags.filter(tag => !productSkipPattern.test(tag));
 
-        // Step 4: Create new waitlist tag for next month
-        const currentMonth = now.getMonth(); // 0-11
-        const currentYear = now.getFullYear();
-        
-        // Calculate next month
-        let nextMonth = currentMonth + 1;
-        let nextYear = currentYear;
-        if (nextMonth > 11) {
-            nextMonth = 0;
-            nextYear++;
+        if (!is_remove) {
+            // Add the new skip tag
+            filteredTags.push(skipTag);
+        } else {
+            const removeTagPattern = new RegExp(`waitlist:${productHandle}:`);
+            // Also remove the waitlist tag for this month if is_remove is true
+            filteredTags = filteredTags.filter(tag => !removeTagPattern.test(tag));
+            filteredTags = filteredTags.filter(tag => tag != customer_tag_to_remove);
         }
-        
-        // Create date for next month
-        const nextMonthDate = new Date(nextYear, nextMonth, 1);
-        const nextMonthName = nextMonthDate.toLocaleDateString('en-GB', { month: 'long', timeZone: 'Europe/London' });
-        
-        // Create the new waitlist tag for next month
-        const nextMonthWaitlistTag = `waitlist:${productHandle}:${nextMonthName.toLowerCase()}-${nextYear}`;
-        
-        // Add the new waitlist tag if it doesn't already exist
-        if (!filteredTags.includes(nextMonthWaitlistTag)) {
-            filteredTags.push(nextMonthWaitlistTag);
-            console.log('Added new waitlist tag for next month:', nextMonthWaitlistTag);
+
+        if (!is_remove) {
+            // Step 4: Create new waitlist tag for next month
+            const currentMonth = now.getMonth(); // 0-11
+            const currentYear = now.getFullYear();
+
+            // Calculate next month
+            let nextMonth = currentMonth + 1;
+            let nextYear = currentYear;
+            if (nextMonth > 11) {
+                nextMonth = 0;
+                nextYear++;
+            }
+
+            // Create date for next month
+            const nextMonthDate = new Date(nextYear, nextMonth, 1);
+            const nextMonthName = nextMonthDate.toLocaleDateString('en-GB', { month: 'long', timeZone: 'Europe/London' });
+
+            // Create the new waitlist tag for next month
+            const nextMonthWaitlistTag = `waitlist:${productHandle}:${day} ${nextMonthName.toLowerCase()}-${nextYear}:${time}`;
+
+            // Add the new waitlist tag if it doesn't already exist
+            if (!filteredTags.includes(nextMonthWaitlistTag)) {
+                filteredTags.push(nextMonthWaitlistTag);
+                console.log('Added new waitlist tag for next month:', nextMonthWaitlistTag);
+            }
         }
+
+        console.log('Final tags to be set:', filteredTags);
 
         // Step 5: Update tags
         const updateResponse = await fetch(`${SHOPIFY_ADMIN_API_URL}/customers/${customer_id}.json`, {
@@ -203,7 +216,7 @@ export default async function handler(req, res) {
             return res.status(500).json({ error: 'Failed to update customer tags' });
         }
 
-        return res.status(200).json({ 
+        return res.status(200).json({
             success: true,
             skipTag: skipTag
         });
@@ -212,4 +225,3 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'Internal server error' });
     }
 }
-  
