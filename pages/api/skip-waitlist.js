@@ -37,11 +37,13 @@ export default async function handler(req, res) {
             waitlist_tag,
             metafield_key,
             is_remove = false,
-            customer_tag_to_remove
+            customer_tag_to_remove,
+            customer_email,
+            klaviyo_id
         } = req.body;
 
         console.log('Received request body:', req.body);
-    
+
         if (!customer_id || !subscription_key || !waitlist_tag || !metafield_key) {
             console.log('Missing required fields:', {
                 customer_id: !!customer_id,
@@ -62,10 +64,11 @@ export default async function handler(req, res) {
 
         // Log the waitlist tag format for debugging
         console.log('Waitlist tag received:', waitlist_tag);
-    
+
         const SHOPIFY_ADMIN_API_KEY = process.env.SHOPIFY_ADMIN_API_KEY;
         const SHOPIFY_STORE_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN;
         const SHOPIFY_ADMIN_API_URL = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/2023-10`;
+        const KLAVIYO_API_KEY = process.env.KLAVIYO_API_KEY;
 
         if (!SHOPIFY_ADMIN_API_KEY || !SHOPIFY_STORE_DOMAIN) {
             console.error('Missing Shopify environment variables');
@@ -165,6 +168,78 @@ export default async function handler(req, res) {
             // Also remove the waitlist tag for this month if is_remove is true
             filteredTags = filteredTags.filter(tag => !removeTagPattern.test(tag));
             filteredTags = filteredTags.filter(tag => tag != customer_tag_to_remove);
+
+            // Remove customer from Klaviyo list
+            if (klaviyo_id && customer_email) {
+                try {
+                    console.log('Removing customer from Klaviyo list:', klaviyo_id);
+                    
+                    // Step 1: Get the profile ID from Klaviyo using email
+                    const encodedEmail = encodeURIComponent(customer_email);
+                    const getProfileUrl = `https://a.klaviyo.com/api/lists/${klaviyo_id}/relationships/profiles?filter=equals(email,'${encodedEmail}')&page[size]=20`;
+                    
+                    const getProfileResponse = await fetch(getProfileUrl, {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `Klaviyo-API-Key ${KLAVIYO_API_KEY}`,
+                            'accept': 'application/vnd.api+json',
+                            'revision': '2025-10-15'
+                        }
+                    });
+
+                    if (!getProfileResponse.ok) {
+                        const errorText = await getProfileResponse.text();
+                        console.error('Failed to get Klaviyo profile. Status:', getProfileResponse.status);
+                        console.error('Error response:', errorText);
+                    } else {
+                        const profileData = await getProfileResponse.json();
+                        console.log('Klaviyo profile data:', profileData);
+
+                        // Check if we found a profile
+                        if (profileData.data && profileData.data.length > 0) {
+                            const profileId = profileData.data[0].id;
+                            console.log('Found Klaviyo profile ID:', profileId);
+
+                            // Step 2: Remove the profile from the list
+                            const removeProfileUrl = `https://a.klaviyo.com/api/lists/${klaviyo_id}/relationships/profiles`;
+                            const removePayload = {
+                                data: [
+                                    {
+                                        type: "profile",
+                                        id: profileId
+                                    }
+                                ]
+                            };
+
+                            const removeProfileResponse = await fetch(removeProfileUrl, {
+                                method: 'DELETE',
+                                headers: {
+                                    'Authorization': `Klaviyo-API-Key ${KLAVIYO_API_KEY}`,
+                                    'accept': 'application/vnd.api+json',
+                                    'content-type': 'application/vnd.api+json',
+                                    'revision': '2025-10-15'
+                                },
+                                body: JSON.stringify(removePayload)
+                            });
+
+                            if (!removeProfileResponse.ok) {
+                                const errorText = await removeProfileResponse.text();
+                                console.error('Failed to remove profile from Klaviyo list. Status:', removeProfileResponse.status);
+                                console.error('Error response:', errorText);
+                            } else {
+                                console.log('Successfully removed profile from Klaviyo list');
+                            }
+                        } else {
+                            console.log('No profile found in Klaviyo list for email:', customer_email);
+                        }
+                    }
+                } catch (klaviyoError) {
+                    console.error('Error processing Klaviyo removal:', klaviyoError);
+                    // Don't fail the entire request if Klaviyo removal fails
+                }
+            } else {
+                console.log('Skipping Klaviyo removal: missing klaviyo_id or customer_email');
+            }
         }
 
         if (!is_remove) {
