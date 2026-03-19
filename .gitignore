@@ -18,7 +18,6 @@
 /out/
 
 # production
-temp_auto_push.bat
 /build
 
 # misc
@@ -41,3 +40,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .gitignore
+temp_auto_push.bat
+temp_interactive_push.bat
