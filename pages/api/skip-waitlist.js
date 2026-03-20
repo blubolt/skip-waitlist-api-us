@@ -1,7 +1,3 @@
-import { createRequire } from 'module';
-
-const require = createRequire(import.meta.url);
-
 export default async function handler(req, res) {
     // Set proper response headers
     res.setHeader('Content-Type', 'application/json');
