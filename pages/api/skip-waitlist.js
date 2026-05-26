@@ -131,15 +131,13 @@ export default async function handler(req, res) {
         // Get date components in BST timezone
         const day = now.toLocaleDateString('en-GB', { day: 'numeric', timeZone: 'Europe/London' });
         const month = now.toLocaleDateString('en-GB', { month: 'long', timeZone: 'Europe/London' });
-        const year = now.toLocaleDateString('en-GB', { year: 'numeric', timeZone: 'Europe/London' });
         const time = now.toLocaleTimeString('en-GB', { 
             hour: '2-digit', 
             minute: '2-digit',
             hour12: true,
             timeZone: 'Europe/London'
         });
-        const timestamp = `${day} ${month} ${year} ${time}`;
-        const skipTag = `skipped:${productHandle}:${timestamp.replace(/,/g, '')}`;
+        const skipTag = `Skipped:${productHandle}-${month}`;
 
         // Step 3: Fetch current tags
         const customerRes = await fetch(`${SHOPIFY_ADMIN_API_URL}/customers/${customer_id}.json`, {
@@ -157,7 +155,7 @@ export default async function handler(req, res) {
         const currentTags = customerData.customer.tags.split(',').map(t => t.trim());
 
         // Remove any existing skip tags for this product
-        const productSkipPattern = new RegExp(`skipped:${productHandle}:`);
+        const productSkipPattern = new RegExp(`^(skipped:${productHandle}:|Skipped:${productHandle}-)`);
         let filteredTags = currentTags.filter(tag => !productSkipPattern.test(tag));
 
         if (!is_remove) {
