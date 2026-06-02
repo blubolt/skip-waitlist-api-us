@@ -1,3 +1,23 @@
+function getDaySuffix(day) {
+    if ([1, 21, 31].includes(day)) return 'st';
+    if ([2, 22].includes(day)) return 'nd';
+    if ([3, 23].includes(day)) return 'rd';
+    return 'th';
+}
+
+function formatWaitlistDate(day, month, year) {
+    return `${day}${getDaySuffix(day)} ${month} ${year}`;
+}
+
+function formatWaitlistTime(date) {
+    return date.toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: 'Europe/London'
+    }).replace(/\b(am|pm)\b/i, match => match.toUpperCase());
+}
+
 export default async function handler(req, res) {
     // Set proper response headers
     res.setHeader('Content-Type', 'application/json');
@@ -129,14 +149,9 @@ export default async function handler(req, res) {
         const now = new Date();
         
         // Get date components in BST timezone
-        const day = now.toLocaleDateString('en-GB', { day: 'numeric', timeZone: 'Europe/London' });
+        const day = Number(now.toLocaleDateString('en-GB', { day: 'numeric', timeZone: 'Europe/London' }));
         const month = now.toLocaleDateString('en-GB', { month: 'long', timeZone: 'Europe/London' });
-        const time = now.toLocaleTimeString('en-GB', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: true,
-            timeZone: 'Europe/London'
-        });
+        const time = formatWaitlistTime(now);
         const skipTag = `Skipped:${productHandle}-${month}`;
 
         // Step 3: Fetch current tags
@@ -256,9 +271,10 @@ export default async function handler(req, res) {
             // Create date for next month
             const nextMonthDate = new Date(nextYear, nextMonth, 1);
             const nextMonthName = nextMonthDate.toLocaleDateString('en-GB', { month: 'long', timeZone: 'Europe/London' });
+            const nextMonthDateTag = formatWaitlistDate(day, nextMonthName, nextYear);
 
             // Create the new waitlist tag for next month
-            const nextMonthWaitlistTag = `waitlist:${productHandle}:${day} ${nextMonthName.toLowerCase()}-${nextYear}:${time}`;
+            const nextMonthWaitlistTag = `waitlist:${productHandle}:${nextMonthDateTag}:${time}`;
 
             // Add the new waitlist tag if it doesn't already exist
             if (!filteredTags.includes(nextMonthWaitlistTag)) {
