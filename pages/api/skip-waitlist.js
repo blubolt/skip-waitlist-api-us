@@ -1,3 +1,69 @@
+function getDaySuffix(day) {
+    if ([1, 21, 31].includes(day)) return 'st';
+    if ([2, 22].includes(day)) return 'nd';
+    if ([3, 23].includes(day)) return 'rd';
+    return 'th';
+}
+
+function formatWaitlistDate(day, month, year) {
+    return `${day}${getDaySuffix(day)} ${month} ${year}`;
+}
+
+function formatWaitlistTime(date) {
+    return date.toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: 'Europe/London'
+    }).replace(/\b(am|pm)\b/i, match => match.toUpperCase());
+}
+
+const MONTH_NAMES = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December'
+];
+
+export function getLondonWaitlistDateParts(date) {
+    const parts = Object.fromEntries(
+        new Intl.DateTimeFormat('en-GB', {
+            day: 'numeric',
+            month: 'numeric',
+            year: 'numeric',
+            timeZone: 'Europe/London'
+        })
+            .formatToParts(date)
+            .filter(({ type }) => type !== 'literal')
+            .map(({ type, value }) => [type, value])
+    );
+    const day = Number(parts.day);
+    const currentMonth = Number(parts.month) - 1;
+    const currentYear = Number(parts.year);
+    const nextMonth = (currentMonth + 1) % 12;
+    const nextYear = currentYear + (nextMonth === 0 ? 1 : 0);
+
+    return {
+        day,
+        month: MONTH_NAMES[currentMonth],
+        currentYear,
+        nextMonthName: MONTH_NAMES[nextMonth],
+        nextYear
+    };
+}
+
+export function normalizeSentMetafieldKey(metafieldKey) {
+    return metafieldKey.endsWith('_sent') ? metafieldKey : `${metafieldKey}_sent`;
+}
+
 export default async function handler(req, res) {
     // Set proper response headers
     res.setHeader('Content-Type', 'application/json');
@@ -6,6 +72,9 @@ export default async function handler(req, res) {
         'http://127.0.0.1:9292',
         'http://localhost:9292',
         'https://illumicrate-testing.myshopify.com',
+        'https://illumicrate.com',
+        'https://www.illumicrate.com',
+        'https://us.illumicrate.com',
         'https://illumicrate.myshopify.com',
         'https://us.illumicrate.myshopify.com'
     ];
@@ -76,7 +145,7 @@ export default async function handler(req, res) {
         }
     
         // Step 1: Set metafield to false
-        const metafieldKey = `${metafield_key}_sent`;
+        const metafieldKey = normalizeSentMetafieldKey(metafield_key);
         console.log('Setting metafield:', `klaviyo.${metafieldKey} to false`);
         console.log('Customer ID:', customer_id);
         console.log('Shopify API URL:', `${SHOPIFY_ADMIN_API_URL}/customers/${customer_id}/metafields.json`);
@@ -128,18 +197,10 @@ export default async function handler(req, res) {
         // Use BST timezone to match user expectations
         const now = new Date();
         
-        // Get date components in BST timezone
-        const day = now.toLocaleDateString('en-GB', { day: 'numeric', timeZone: 'Europe/London' });
-        const month = now.toLocaleDateString('en-GB', { month: 'long', timeZone: 'Europe/London' });
-        const year = now.toLocaleDateString('en-GB', { year: 'numeric', timeZone: 'Europe/London' });
-        const time = now.toLocaleTimeString('en-GB', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: true,
-            timeZone: 'Europe/London'
-        });
-        const timestamp = `${day} ${month} ${year} ${time}`;
-        const skipTag = `skipped:${productHandle}:${timestamp.replace(/,/g, '')}`;
+        // Get current and next-month components from the same London calendar date.
+        const { day, month, nextMonthName, nextYear } = getLondonWaitlistDateParts(now);
+        const time = formatWaitlistTime(now);
+        const skipTag = `Skipped:${productHandle}-${month}`;
 
         // Step 3: Fetch current tags
         const customerRes = await fetch(`${SHOPIFY_ADMIN_API_URL}/customers/${customer_id}.json`, {
@@ -157,8 +218,9 @@ export default async function handler(req, res) {
         const currentTags = customerData.customer.tags.split(',').map(t => t.trim());
 
         // Remove any existing skip tags for this product
-        const productSkipPattern = new RegExp(`skipped:${productHandle}:`);
+        const productSkipPattern = new RegExp(`^(skipped:${productHandle}:|Skipped:${productHandle}-)`);
         let filteredTags = currentTags.filter(tag => !productSkipPattern.test(tag));
+        filteredTags = filteredTags.filter(tag => tag !== waitlist_tag);
 
         if (!is_remove) {
             // Add the new skip tag
@@ -244,23 +306,10 @@ export default async function handler(req, res) {
 
         if (!is_remove) {
             // Step 4: Create new waitlist tag for next month
-            const currentMonth = now.getMonth(); // 0-11
-            const currentYear = now.getFullYear();
-
-            // Calculate next month
-            let nextMonth = currentMonth + 1;
-            let nextYear = currentYear;
-            if (nextMonth > 11) {
-                nextMonth = 0;
-                nextYear++;
-            }
-
-            // Create date for next month
-            const nextMonthDate = new Date(nextYear, nextMonth, 1);
-            const nextMonthName = nextMonthDate.toLocaleDateString('en-GB', { month: 'long', timeZone: 'Europe/London' });
+            const nextMonthDateTag = formatWaitlistDate(day, nextMonthName, nextYear);
 
             // Create the new waitlist tag for next month
-            const nextMonthWaitlistTag = `waitlist:${productHandle}:${day} ${nextMonthName.toLowerCase()}-${nextYear}:${time}`;
+            const nextMonthWaitlistTag = `waitlist:${productHandle}:${nextMonthDateTag}:${time}`;
 
             // Add the new waitlist tag if it doesn't already exist
             if (!filteredTags.includes(nextMonthWaitlistTag)) {
