@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import handler, { getLondonWaitlistDateParts } from '../pages/api/skip-waitlist.js';
+import handler, {
+    getLondonWaitlistDateParts,
+    normalizeSentMetafieldKey
+} from '../pages/api/skip-waitlist.js';
 
 const fixedNow = new Date('2026-07-19T12:34:00.000Z');
 
@@ -26,6 +29,11 @@ test('next waitlist month follows the London date at the BST month boundary', ()
             nextYear: 2026
         }
     );
+});
+
+test('sent metafield keys accept the full theme key without appending twice', () => {
+    assert.equal(normalizeSentMetafieldKey('evernight_waitlist'), 'evernight_waitlist_sent');
+    assert.equal(normalizeSentMetafieldKey('evernight_waitlist_sent'), 'evernight_waitlist_sent');
 });
 
 const jsonResponse = (status, body) => ({
@@ -122,7 +130,7 @@ test('Skip writes the approved tag/state and preserves unrelated tags', async ()
             customer_id: '123',
             subscription_key: 'evernight-horror',
             waitlist_tag: 'waitlist:evernight-horror:19th July 2026:01:34 PM',
-            metafield_key: 'evernight_waitlist'
+            metafield_key: 'evernight_waitlist_sent'
         }
     };
     const res = createResponse();
@@ -153,6 +161,7 @@ test('Skip writes the approved tag/state and preserves unrelated tags', async ()
         assert(tags.includes('unrelated-tag'));
         assert(!tags.some(tag => tag.startsWith('skipped:evernight-horror:')));
         assert(!tags.includes('Skipped:evernight-horror-June'));
+        assert(!tags.includes('waitlist:evernight-horror:19th July 2026:01:34 PM'));
     } finally {
         globalThis.Date = originalDate;
         globalThis.fetch = originalFetch;

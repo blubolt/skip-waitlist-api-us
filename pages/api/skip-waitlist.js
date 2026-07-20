@@ -60,6 +60,10 @@ export function getLondonWaitlistDateParts(date) {
     };
 }
 
+export function normalizeSentMetafieldKey(metafieldKey) {
+    return metafieldKey.endsWith('_sent') ? metafieldKey : `${metafieldKey}_sent`;
+}
+
 export default async function handler(req, res) {
     // Set proper response headers
     res.setHeader('Content-Type', 'application/json');
@@ -141,7 +145,7 @@ export default async function handler(req, res) {
         }
     
         // Step 1: Set metafield to false
-        const metafieldKey = `${metafield_key}_sent`;
+        const metafieldKey = normalizeSentMetafieldKey(metafield_key);
         console.log('Setting metafield:', `klaviyo.${metafieldKey} to false`);
         console.log('Customer ID:', customer_id);
         console.log('Shopify API URL:', `${SHOPIFY_ADMIN_API_URL}/customers/${customer_id}/metafields.json`);
@@ -216,6 +220,7 @@ export default async function handler(req, res) {
         // Remove any existing skip tags for this product
         const productSkipPattern = new RegExp(`^(skipped:${productHandle}:|Skipped:${productHandle}-)`);
         let filteredTags = currentTags.filter(tag => !productSkipPattern.test(tag));
+        filteredTags = filteredTags.filter(tag => tag !== waitlist_tag);
 
         if (!is_remove) {
             // Add the new skip tag
