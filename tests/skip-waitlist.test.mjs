@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import handler from '../pages/api/skip-waitlist.js';
+import handler, { getLondonWaitlistDateParts } from '../pages/api/skip-waitlist.js';
 
 const fixedNow = new Date('2026-07-19T12:34:00.000Z');
 
@@ -14,6 +14,19 @@ class FixedDate extends Date {
         return fixedNow.getTime();
     }
 }
+
+test('next waitlist month follows the London date at the BST month boundary', () => {
+    assert.deepEqual(
+        getLondonWaitlistDateParts(new Date('2026-07-31T23:30:00.000Z')),
+        {
+            day: 1,
+            month: 'August',
+            currentYear: 2026,
+            nextMonthName: 'September',
+            nextYear: 2026
+        }
+    );
+});
 
 const jsonResponse = (status, body) => ({
     ok: status >= 200 && status < 300,
@@ -47,6 +60,22 @@ const createResponse = () => {
         }
     };
 };
+
+test('unknown origins are not granted browser CORS access', async () => {
+    const res = createResponse();
+
+    await handler(
+        {
+            method: 'OPTIONS',
+            headers: { origin: 'https://attacker.example' },
+            body: {}
+        },
+        res
+    );
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.headers.has('access-control-allow-origin'), false);
+});
 
 test('Skip writes the approved tag/state and preserves unrelated tags', async () => {
     const originalDate = globalThis.Date;

@@ -18,6 +18,48 @@ function formatWaitlistTime(date) {
     }).replace(/\b(am|pm)\b/i, match => match.toUpperCase());
 }
 
+const MONTH_NAMES = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December'
+];
+
+export function getLondonWaitlistDateParts(date) {
+    const parts = Object.fromEntries(
+        new Intl.DateTimeFormat('en-GB', {
+            day: 'numeric',
+            month: 'numeric',
+            year: 'numeric',
+            timeZone: 'Europe/London'
+        })
+            .formatToParts(date)
+            .filter(({ type }) => type !== 'literal')
+            .map(({ type, value }) => [type, value])
+    );
+    const day = Number(parts.day);
+    const currentMonth = Number(parts.month) - 1;
+    const currentYear = Number(parts.year);
+    const nextMonth = (currentMonth + 1) % 12;
+    const nextYear = currentYear + (nextMonth === 0 ? 1 : 0);
+
+    return {
+        day,
+        month: MONTH_NAMES[currentMonth],
+        currentYear,
+        nextMonthName: MONTH_NAMES[nextMonth],
+        nextYear
+    };
+}
+
 export default async function handler(req, res) {
     // Set proper response headers
     res.setHeader('Content-Type', 'application/json');
@@ -26,6 +68,9 @@ export default async function handler(req, res) {
         'http://127.0.0.1:9292',
         'http://localhost:9292',
         'https://illumicrate-testing.myshopify.com',
+        'https://illumicrate.com',
+        'https://www.illumicrate.com',
+        'https://us.illumicrate.com',
         'https://illumicrate.myshopify.com',
         'https://us.illumicrate.myshopify.com'
     ];
@@ -148,9 +193,8 @@ export default async function handler(req, res) {
         // Use BST timezone to match user expectations
         const now = new Date();
         
-        // Get date components in BST timezone
-        const day = Number(now.toLocaleDateString('en-GB', { day: 'numeric', timeZone: 'Europe/London' }));
-        const month = now.toLocaleDateString('en-GB', { month: 'long', timeZone: 'Europe/London' });
+        // Get current and next-month components from the same London calendar date.
+        const { day, month, nextMonthName, nextYear } = getLondonWaitlistDateParts(now);
         const time = formatWaitlistTime(now);
         const skipTag = `Skipped:${productHandle}-${month}`;
 
@@ -257,20 +301,6 @@ export default async function handler(req, res) {
 
         if (!is_remove) {
             // Step 4: Create new waitlist tag for next month
-            const currentMonth = now.getMonth(); // 0-11
-            const currentYear = now.getFullYear();
-
-            // Calculate next month
-            let nextMonth = currentMonth + 1;
-            let nextYear = currentYear;
-            if (nextMonth > 11) {
-                nextMonth = 0;
-                nextYear++;
-            }
-
-            // Create date for next month
-            const nextMonthDate = new Date(nextYear, nextMonth, 1);
-            const nextMonthName = nextMonthDate.toLocaleDateString('en-GB', { month: 'long', timeZone: 'Europe/London' });
             const nextMonthDateTag = formatWaitlistDate(day, nextMonthName, nextYear);
 
             // Create the new waitlist tag for next month
